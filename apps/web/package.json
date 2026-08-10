@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@clouddev/shared": "*",
+    "@clouddev/shared": "workspace:*",
     "@fontsource/space-grotesk": "^5.1.0",
     "@fontsource/inter": "^5.1.0",
     "@fontsource/jetbrains-mono": "^5.1.1",
@@ -30,7 +30,6 @@
     "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
-    "@clouddev/shared": "workspace:*"
     "typescript": "^5.6.3",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
