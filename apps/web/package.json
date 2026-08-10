@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@clouddev/shared": "workspace:*",
+    "@clouddev/shared": "*"
     "@fontsource/space-grotesk": "^5.1.0",
     "@fontsource/inter": "^5.1.0",
     "@fontsource/jetbrains-mono": "^5.1.1",
