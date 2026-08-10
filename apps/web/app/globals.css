@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --radius: 0.85rem;
+
+  /* Pure-black system, matching ShipStack's look, with electric-blue/cyan accents */
+  --background: 0 0% 3%;           /* near-true black */
+  --foreground: 210 20% 96%;
+
+  --card: 0 0% 7%;
+  --card-foreground: 210 20% 96%;
+
+  --popover: 0 0% 7%;
+  --popover-foreground: 210 20% 96%;
+
+  --primary: 217 91% 60%;          /* #3B82F6 electric blue */
+  --primary-foreground: 0 0% 4%;
+
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 210 20% 96%;
+
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 60%;
+
+  --accent: 0 0% 13%;
+  --accent-foreground: 210 20% 96%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 210 20% 96%;
+
+  --border: 0 0% 15%;
+  --input: 0 0% 15%;
+  --ring: 189 94% 55%;
+
+  --violet: 258 90% 66%;           /* #8B5CF6 */
+  --cyan: 189 94% 55%;             /* #22D3EE — the ShipStack beam color */
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: "Inter", sans-serif;
+}
+
+/* Faint grid texture used behind hero / sandbox surfaces */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* Gives the TextColor component's shimmering gradient words somewhere to travel */
+.animate-gradient-foreground-1,
+.animate-gradient-foreground-2,
+.animate-gradient-foreground-3 {
+  background-size: 220% auto;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border));
+  border-radius: 999px;
+}
+
+@keyframes blink-caret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.caret-blink {
+  animation: blink-caret 1s step-end infinite;
+}

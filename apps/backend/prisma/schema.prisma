@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TaskStatus {
+  PLANNING
+  EXECUTING
+  BLOCKED_ON_USER
+  PR_CREATED
+  DONE
+  FAILED
+}
+
+enum MessageRole {
+  user
+  agent
+  system
+}
+
+enum BlockOnUserResponse {
+  BLOCK
+  DONE
+  NONE
+}
+
+enum ToolCallStatus {
+  running
+  succeeded
+  failed
+}
+
+model User {
+  id                    String   @id @default(uuid())
+  githubId              String   @unique @map("github_id")
+  githubAccessToken     String   @map("github_access_token") // encrypted at rest, see src/db/crypto.ts
+  email                 String   @unique
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  tasks   Task[]
+  secrets Secret[]
+
+  @@map("users")
+}
+
+model Task {
+  id             String     @id @default(uuid())
+  userId         String     @map("user_id")
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repoFullName   String     @map("repo_full_name")
+  title          String
+  description    String     @default("")
+  status         TaskStatus @default(PLANNING)
+  /// True once a deploy tool call is waiting on POST /tasks/:id/approve-deploy
+  pendingDeployApproval Boolean @default(false) @map("pending_deploy_approval")
+  prUrl          String?    @map("pr_url")
+  prNumber       Int?       @map("pr_number")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  messages  Message[]
+  toolCalls ToolCall[]
+
+  @@index([userId, createdAt])
+  @@map("tasks")
+}
+
+model Message {
+  id                   String               @id @default(uuid())
+  taskId               String               @map("task_id")
+  task                 Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  role                 MessageRole
+  content              String
+  blockOnUserResponse  BlockOnUserResponse  @default(NONE) @map("block_on_user_response")
+  /// Array of { id, url, contentType, fileName, sizeBytes } — see @clouddev/shared Attachment type
+  attachments          Json                 @default("[]")
+  createdAt            DateTime             @default(now()) @map("created_at")
+
+  @@index([taskId, createdAt])
+  @@map("messages")
+}
+
+model ToolCall {
+  id         String         @id @default(uuid())
+  taskId     String         @map("task_id")
+  task       Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  toolName   String         @map("tool_name")
+  args       Json
+  result     Json?
+  status     ToolCallStatus @default(running)
+  startedAt  DateTime       @default(now()) @map("started_at")
+  finishedAt DateTime?      @map("finished_at")
+
+  @@index([taskId, startedAt])
+  @@map("tool_calls")
+}
+
+model Secret {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  awsSecretArn String   @map("aws_secret_arn")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, name])
+  @@map("secrets")
+}
