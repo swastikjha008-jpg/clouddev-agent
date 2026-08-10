@@ -18,12 +18,14 @@
   <img src="https://img.shields.io/badge/Prisma-0A192F?style=for-the-badge&logo=prisma&logoColor=00B4FF&labelColor=000000" />
   <img src="https://img.shields.io/badge/Turborepo-0A192F?style=for-the-badge&logo=turborepo&logoColor=00B4FF&labelColor=000000" />
   <img src="https://img.shields.io/badge/WebSocket-0A192F?style=for-the-badge&logo=websocket&logoColor=00B4FF&labelColor=000000" />
+  <img src="https://img.shields.io/badge/AWS-0A192F?style=for-the-badge&logo=amazonaws&logoColor=FF9900&labelColor=000000" />
   <img src="https://img.shields.io/badge/GitHub-0A192F?style=for-the-badge&logo=github&logoColor=white&labelColor=000000" />
   <img src="https://img.shields.io/badge/npm-0A192F?style=for-the-badge&logo=npm&logoColor=CB3837&labelColor=000000" />
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Status-Phase%201%20—%20Core%20Agent%20Loop-00B4FF?style=for-the-badge&labelColor=000000" />
+  <img src="https://img.shields.io/badge/Live%20Demo-Testing%20on%20AWS%20%2B%20Render-00B4FF?style=for-the-badge&labelColor=000000" />
 </p>
 
 <p align="center">
@@ -41,7 +43,7 @@ It takes a coding task, provisions an isolated Docker sandbox, gives an AI agent
 >
 > The core agent loop, local Docker sandbox, Shell + Editor tools, PostgreSQL persistence, REST API, WebSocket events, and connected frontend are working.
 >
-> Deployment and production infrastructure will be added in the next phase.
+> The frontend and backend are also now deployed for live testing (see [🌍 Current Deployment](#-current-deployment-testing) below). Full production infrastructure is still planned for **Phase 3**.
 
 ---
 
@@ -131,6 +133,53 @@ The REST and WebSocket contracts live inside `packages/shared/`. Both the backen
 
 ### 🛑 Honest UI States
 Features that don't exist yet aren't faked. For example, **Diff** and **Browser** are marked "Not available yet" — reserved for future phases instead of showing fabricated functionality.
+
+---
+
+## 🌍 Current Deployment (Testing)
+
+CloudDev now has a live, working deployment used for manual testing while Phase 3 (AWS ECS Fargate) infrastructure is designed properly.
+
+```text
+                     ┌───────────────────────┐
+                     │   CloudDev Frontend    │
+                     │   Next.js on Render    │
+                     │        (HTTPS)         │
+                     └───────────┬───────────┘
+                                 │
+                          HTTPS request
+                                 │
+                                 ▼
+                     ┌───────────────────────┐
+                     │   Cloudflare Tunnel    │
+                     │  (HTTPS termination)   │
+                     └───────────┬───────────┘
+                                 │
+                            localhost:8080
+                                 │
+                                 ▼
+                     ┌───────────────────────┐
+                     │   CloudDev Backend     │
+                     │  Fastify · AWS EC2     │
+                     │  managed by systemd    │
+                     └───────────┬───────────┘
+                                 │
+                                 ▼
+                     ┌───────────────────────┐
+                     │   Neon PostgreSQL      │
+                     │   (managed, serverless)│
+                     └───────────────────────┘
+```
+
+**How it's wired up:**
+
+- **Frontend** — deployed to **Render** as a Next.js web service, built from `apps/web` via Turborepo (`turbo run build --filter=@clouddev/web...`).
+- **Backend** — runs on an **AWS EC2** instance, kept alive as a `systemd` service (`clouddev-backend.service`) so it survives SSH disconnects and reboots, with automatic restarts on crash.
+- **HTTPS for the backend** — the backend only listens on plain HTTP, so a **Cloudflare Tunnel** (`cloudflared`) sits in front of it to provide a public HTTPS endpoint. This avoids the browser's mixed-content blocking (an HTTPS frontend cannot call an HTTP API).
+- **Database** — **Neon** (managed serverless PostgreSQL), with Prisma migrations applied via `npx prisma migrate deploy`.
+- **CORS** — the backend's `CORS_ORIGIN` env var allowlists the Render frontend origin explicitly.
+
+> ⚠️ **This is a testing setup, not production infrastructure.** The Cloudflare Quick Tunnel URL is ephemeral and will change if the tunnel process restarts. It also does not solve any of the items listed in [🔐 Deployment Readiness](#-deployment-readiness) — dev-auth is still in place, and this deployment should not be shared as a public/production product yet. A named Cloudflare Tunnel (or the planned ECS Fargate + ALB setup from Phase 3) is required for a stable, permanent URL.
 
 ---
 
@@ -277,14 +326,18 @@ Adding another provider should not require rewriting the agent loop.
   <img src="https://img.shields.io/badge/Docker-0A192F?style=for-the-badge&logo=docker&logoColor=00B4FF&labelColor=000000" />
   <img src="https://img.shields.io/badge/PostgreSQL-0A192F?style=for-the-badge&logo=postgresql&logoColor=00B4FF&labelColor=000000" />
   <img src="https://img.shields.io/badge/Prisma-0A192F?style=for-the-badge&logo=prisma&logoColor=00B4FF&labelColor=000000" />
+  <img src="https://img.shields.io/badge/AWS-0A192F?style=for-the-badge&logo=amazonaws&logoColor=FF9900&labelColor=000000" />
 </p>
 
 - Docker
-- PostgreSQL
+- PostgreSQL (Neon, managed)
 - Prisma ORM
 - Docker-based sandboxing
 - In-memory EventBus
 - Turborepo
+- **AWS EC2** — backend host, run as a `systemd` service
+- **Cloudflare Tunnel** — HTTPS ingress for the backend
+- **Render** — frontend hosting
 
 ### Development
 <p>
@@ -340,6 +393,7 @@ cp apps/backend/.env.example apps/backend/.env
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/clouddev"
 GEMINI_API_KEY="your-gemini-api-key"
+CORS_ORIGIN="http://localhost:3000"
 ```
 
 ### 5. Run Prisma migrations
@@ -498,6 +552,8 @@ CloudDev is intentionally a **Phase 1 implementation**. Some capabilities are no
 
 **Distributed Infrastructure** — The current EventBus uses an in-memory `EventEmitter`, which works for a single backend instance. For multiple backend instances, it will be replaced with a distributed system such as Redis.
 
+**Sandbox availability in the deployed environment** — the current AWS EC2 deployment does not yet have the sandbox Docker image built/pulled on the host, so live tasks created against the deployed backend will fail at the sandbox-provisioning step until the image is available there. Everything else in the request pipeline (auth stub, database, CORS, task creation) works end-to-end.
+
 ---
 
 ## 🚨 Gemini API Quota Limitation
@@ -531,6 +587,8 @@ CloudDev is **not publicly deployable yet**. The biggest blocker is authenticati
 
 Phase 1 currently uses a development authentication stub at `apps/backend/src/plugins/dev-auth.ts`. All requests are associated with a shared development user, and the current implementation also accepts an arbitrary `x-user-id` header — meaning a public deployment would allow users to access or manipulate other users' tasks.
 
+This applies to the current [live testing deployment](#-current-deployment-testing) as well — it exists to validate the deployment pipeline (build, hosting, HTTPS, database, CORS), not to serve as a public product.
+
 **Before public deployment, CloudDev needs:**
 - Real authentication
 - Proper user isolation
@@ -542,6 +600,7 @@ Phase 1 currently uses a development authentication stub at `apps/backend/src/pl
 - Better API quota handling
 - Production monitoring
 - Deployment infrastructure
+- A stable, non-ephemeral HTTPS endpoint for the backend (replacing the current Cloudflare Quick Tunnel)
 
 **Do not expose the current Phase 1 backend publicly.**
 
@@ -563,6 +622,7 @@ Phase 1 currently uses a development authentication stub at `apps/backend/src/pl
 - [x] Connected Next.js frontend
 - [x] Shared TypeScript contracts
 - [x] Basic task management
+- [x] Frontend deployed (Render) and backend deployed (AWS EC2) for manual testing
 
 ### 🔜 Phase 2 — GitHub Integration
 - [ ] GitHub OAuth
@@ -572,13 +632,14 @@ Phase 1 currently uses a development authentication stub at `apps/backend/src/pl
 - [ ] Proper user/repository permissions
 
 ### ☁️ Phase 3 — AWS Infrastructure
-Planned migration: `Local Docker → AWS ECS Fargate`
+Planned migration: `Local Docker / single EC2 → AWS ECS Fargate`
 
 - ECS Fargate
 - RDS PostgreSQL
 - ElastiCache / Redis
 - Secrets Manager
 - S3
+- Application Load Balancer + ACM (permanent HTTPS, replacing the Cloudflare Quick Tunnel used during testing)
 - Distributed event system
 
 The existing `SandboxProvisioner` abstraction is designed to make this migration possible without rewriting the agent architecture.
@@ -603,9 +664,9 @@ The existing `SandboxProvisioner` abstraction is designed to make this migration
 
 | Phase | Focus | Status |
 |---|---|---|
-| Phase 1 | Core Agent + Docker Sandbox | 🟢 Working |
+| Phase 1 | Core Agent + Docker Sandbox + Test Deployment | 🟢 Working |
 | Phase 2 | GitHub Integration | 🟡 Planned |
-| Phase 3 | AWS Infrastructure | 🟡 Planned |
+| Phase 3 | AWS Infrastructure (ECS Fargate) | 🟡 Planned |
 | Phase 4 | Browser + Deployment | 🟡 Planned |
 | Phase 5 | LSP + MCP | ⚪ Future |
 
@@ -694,13 +755,13 @@ A big thanks to **Kirat Bhaiya / Harkirat Singh** and **100xDevs** for the learn
 
 **CloudDev — Phase 1**
 
-The core autonomous coding workflow is working locally:
+The core autonomous coding workflow is working locally, and a test deployment is live on Render (frontend) + AWS EC2 (backend):
 
 ```text
 Task → Agent → Docker Sandbox → Repository → Shell / Editor → Real Execution → Live Logs → Frontend
 ```
 
-Deployment and production infrastructure will be documented here as the project moves into the next phase.
+Production infrastructure (Phase 3) will replace the current EC2 + Cloudflare Tunnel testing setup as the project moves into the next phase.
 
 ---
 
